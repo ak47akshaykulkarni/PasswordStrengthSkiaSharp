@@ -3,7 +3,7 @@ using Android.Content.PM;
 using Android.OS;
 using Prism;
 using Prism.Ioc;
-
+using SkiaSharp.Views.Forms;
 namespace PasswordStrengthControl.Droid
 {
     [Activity(Label = "PasswordStrengthControl", Icon = "@mipmap/ic_launcher", Theme = "@style/MainTheme", MainLauncher = true, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation)]
