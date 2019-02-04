@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -21,17 +22,42 @@ namespace PasswordStrengthControl.Views
     }
     public partial class MainPage : ContentPage
     {
+        Stopwatch stopwatch = new Stopwatch();
         private SKPoint point0, point1, point2, point3, point4 = new SKPoint(0,0);
+        float scale;
 
+        private bool isIncreament;
+        private PasswordScore observedScore;
         private PasswordScore _score;
         public PasswordScore Score
         {
             get => _score;
             set
             {
+                if(Score == value)return;
                 _score = value;
-                SkCanvasView.InvalidateSurface();
+                AnimationLoop();
+                //SkCanvasView.InvalidateSurface();
             }
+        }
+
+
+        async Task AnimationLoop()
+        {
+            stopwatch.Start();
+            bool pageIsActive = true;
+            
+            while (pageIsActive)
+            {
+                double t = stopwatch.Elapsed.TotalSeconds;
+                if (t > 0.5d) pageIsActive = false;
+                scale = (float) t *2;
+                SkCanvasView.InvalidateSurface();
+                await Task.Delay(TimeSpan.FromSeconds(1.0 / 30));
+            }
+
+            stopwatch.Stop();
+            stopwatch.Reset();
         }
 
         public MainPage()
@@ -49,44 +75,70 @@ namespace PasswordStrengthControl.Views
             point2 = new SKPoint((SkCanvasView.CanvasSize.Width) / 2, 0);
             point3 = new SKPoint(3 * (SkCanvasView.CanvasSize.Width) / 4, 0);
             point4 = new SKPoint(SkCanvasView.CanvasSize.Width, 0);
+            float scaling;
 
-            canvas.Clear();
-
-            SKPaint paintBlack = new SKPaint() { StrokeWidth = 40, Color = SKColors.Black, IsStroke = true };
-            SKPaint paintRed = new SKPaint() { StrokeWidth = 40, Color = SKColors.Red, IsStroke = true };
-            SKPaint paintYellow = new SKPaint() { StrokeWidth = 40, Color = SKColors.Yellow, IsStroke = true };
-            SKPaint paintBlue = new SKPaint() { StrokeWidth = 40, Color = SKColors.CornflowerBlue, IsStroke = true };
-            SKPaint paintGreen = new SKPaint() { StrokeWidth = 40, Color = SKColors.Green, IsStroke = true };
             
-            if (Score == PasswordScore.Blank)
+            if (observedScore != _score)
             {
-                canvas.DrawLine(point0, point1, paintBlack); return;
+                canvas.Clear();
+                isIncreament = observedScore <= _score;
+                observedScore = _score;
             }
 
-            if (Score == PasswordScore.VeryWeak)
+            if (isIncreament)
+                scaling = ((SkCanvasView.CanvasSize.Width) / 4) * scale;
+            else
             {
-                canvas.DrawLine(point0, point1, paintRed); return;
+                canvas.Clear();
+                scaling = ((SkCanvasView.CanvasSize.Width) / 4) * -scale;
+                scaling = scaling < 0 ? scaling : 0;
             }
 
-            if (Score == PasswordScore.Weak)
-            {
-                canvas.DrawLine(point0, point1, paintRed);
-                canvas.DrawLine(point1, point2, paintYellow); return;
-            }
+            var paintRed = new SKPaint() { StrokeWidth = 40, Color = SKColors.Red, IsStroke = true };
+            var paintYellow = new SKPaint() { StrokeWidth = 40, Color = SKColors.Yellow, IsStroke = true };
+            var paintBlue = new SKPaint() { StrokeWidth = 40, Color = SKColors.CornflowerBlue, IsStroke = true };
+            var paintGreen = new SKPaint() { StrokeWidth = 40, Color = SKColors.Green, IsStroke = true };
 
-            if (Score == PasswordScore.Medium)
+            switch (Score)
             {
-                canvas.DrawLine(point0, point1, paintRed);
-                canvas.DrawLine(point1, point2, paintYellow);
-                canvas.DrawLine(point2, point3, paintBlue); return;
-            }
+                case PasswordScore.Blank:
+                    canvas.DrawLine(point0, new SKPoint(point1.X + scaling, 0), paintRed); return;
+                case PasswordScore.VeryWeak:
+                    if (isIncreament)
+                    {
+                        canvas.DrawLine(point0, new SKPoint(point0.X + scaling, 0), paintRed); return;
+                    }
+                    canvas.DrawLine(point1, new SKPoint(point2.X + scaling, 0), paintYellow);
+                    canvas.DrawLine(point0, point1, paintRed); return;
 
-            if (Score == PasswordScore.Strong || Score == PasswordScore.VeryStrong)
-            {
-                canvas.DrawLine(point0, point1, paintRed);
-                canvas.DrawLine(point1, point2, paintYellow);
-                canvas.DrawLine(point2, point3, paintBlue);
-                canvas.DrawLine(point3, point4, paintGreen);
+                case PasswordScore.Weak:
+                    canvas.DrawLine(point0, point1, paintRed);
+                    if (isIncreament)
+                    {
+                        canvas.DrawLine(point1, new SKPoint(point1.X + scaling, 0), paintYellow); return;
+                    }
+                    canvas.DrawLine(point2, new SKPoint(point3.X + scaling, 0), paintBlue);
+                    canvas.DrawLine(point1, point2, paintYellow); return;
+
+                case PasswordScore.Medium:
+                    canvas.DrawLine(point0, point1, paintRed);
+                    canvas.DrawLine(point1, point2, paintYellow);
+
+                    if (isIncreament)
+                    {
+                        canvas.DrawLine(point2, new SKPoint(point2.X + scaling, 0), paintBlue); return;
+                    }
+                    canvas.DrawLine(point3, new SKPoint(point4.X + scaling, 0), paintGreen);
+                    canvas.DrawLine(point2, point3, paintBlue); return;
+
+                case PasswordScore.VeryStrong:
+                case PasswordScore.Strong:
+                    
+                    canvas.DrawLine(point0, point1, paintRed);
+                    canvas.DrawLine(point1, point2, paintYellow);
+                    canvas.DrawLine(point2, point3, paintBlue);
+                    canvas.DrawLine(point3, new SKPoint((isIncreament ? point3.X : point4.X) + scaling, 0), paintGreen);
+                    break;
             }
         }
 
@@ -97,7 +149,7 @@ namespace PasswordStrengthControl.Views
 
         public static PasswordScore CheckStrength(string password)
         {
-            int score = 0;
+            var score = 0;
 
             if (password.Length < 1)
                 return PasswordScore.Blank;
