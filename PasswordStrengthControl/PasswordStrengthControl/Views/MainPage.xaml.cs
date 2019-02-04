@@ -21,11 +21,7 @@ namespace PasswordStrengthControl.Views
     }
     public partial class MainPage : ContentPage
     {
-        private SKPoint point0 = new SKPoint(0, 0);
-        private SKPoint point1;
-        private SKPoint point2;
-        private SKPoint point3;
-        private SKPoint point4;
+        private SKPoint point0, point1, point2, point3, point4 = new SKPoint(0,0);
 
         private PasswordScore _score;
         public PasswordScore Score
